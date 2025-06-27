@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>JS Importer Test</title>
+    <style>
+        body { font-family: sans-serif; padding: 15px; width: 250px; background-color: #f4f4f4; }
+        h4 { margin-top: 0; color: #333; }
+        button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover { background-color: #0056b3; }
+        #statusMessage {
+            margin-top: 15px;
+            font-size: 13px;
+            color: #555;
+            text-align: center;
+        }
+        .info { color: #007bff; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h4>课程导入JS测试</h4>
+    <button id="startTestButton">开始测试</button>
+    <div id="statusMessage" class="info"></div>
+    <script src="popup.js"></script>
+</body>
+</html>

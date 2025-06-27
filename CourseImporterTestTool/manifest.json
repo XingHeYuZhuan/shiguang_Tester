@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "my_class_Tool",
+  "version": "0.2",
+  "description": "一个通用开发工具",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content-script.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "permissions": [
+    "scripting",
+    "activeTab",
+    "notifications",
+    "downloads"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["school.js", "injected_bridge.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
