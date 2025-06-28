@@ -44,26 +44,49 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 const coursesJsonString = args[0];
                 const savePromiseId = args[1];
 
-                const isSaveSuccess = Math.random() > 0.5;
-                let saveResultValue;
+                try {
+                    // *** 最终解决方案：使用 Data URL ***
+                    // 这种方法不依赖 Blob 或 createObjectURL，直接将JSON内容编码到URL中。
+                    const dataUrl = 'data:application/json;charset=utf-8,' + encodeURIComponent(coursesJsonString);
 
-                if (isSaveSuccess) {
-                    saveResultValue = true;
-                } else {
-                    saveResultValue = '保存失败，请重试！';
+                    chrome.downloads.download({
+                        url: dataUrl,
+                        filename: 'courses.json',
+                        saveAs: true
+                    }, (downloadId) => {
+                        if (downloadId === undefined || chrome.runtime.lastError) {
+                            const errorMessage = chrome.runtime.lastError ? chrome.runtime.lastError.message : "下载未能启动。";
+                            console.error(`下载失败: ${errorMessage}`);
+                            chrome.tabs.sendMessage(tabId, {
+                                type: 'RESOLVE_PROMISE_IN_PAGE',
+                                messageId: savePromiseId,
+                                value: `下载失败: ${errorMessage}`,
+                                isError: true
+                            });
+                        } else {
+                            console.log(`下载已启动，ID: ${downloadId}`);
+                            chrome.tabs.sendMessage(tabId, {
+                                type: 'RESOLVE_PROMISE_IN_PAGE',
+                                messageId: savePromiseId,
+                                value: "true",
+                                isError: false
+                            });
+                        }
+                    });
+                } catch (e) {
+                    // 这个 catch 块现在不太可能被触发，但保留它以确保代码健壮性。
+                    console.error("创建下载文件时出错:", e);
+                    chrome.tabs.sendMessage(tabId, {
+                        type: 'RESOLVE_PROMISE_IN_PAGE',
+                        messageId: savePromiseId,
+                        value: `创建下载数据时出错: ${e.message}`,
+                        isError: true
+                    });
                 }
-
-                chrome.tabs.sendMessage(tabId, {
-                    type: 'RESOLVE_PROMISE_IN_PAGE',
-                    messageId: savePromiseId,
-                    value: saveResultValue,
-                    isError: !isSaveSuccess
-                }).then(() => {
-                    sendResponse({ success: true });
-                }).catch(error => {
-                    console.error("Error resolving saveImportedCourses promise:", error);
-                    sendResponse({ success: false, message: error.message });
-                });
+                
+                // 立即响应 content script 的消息，并返回 true
+                // 表示我们将异步地发送另一个消息（即上面下载回调中的 RESOLVE_PROMISE_IN_PAGE）
+                sendResponse({ success: true });
                 return true;
 
             default:
