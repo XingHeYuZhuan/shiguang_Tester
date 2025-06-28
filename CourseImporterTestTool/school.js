@@ -124,8 +124,7 @@ async function demoSaveCourses() {
 
     try {
         console.log("正在尝试导入课程...");
-        // 调用 AndroidBridgePromise.saveImportedCourses 方法
-        const result = await window.AndroidBridgePromise.saveImportedCourses(JSON.stringify(testCourses));
+        const result = await window.AndroidBridgePromise.saveImportedCourses(JSON.stringify(testCourses, null, 2));
         if (result === "true") { // 根据 AndroidBridge.kt 中的 resolveJsPromise("true") 约定
             console.log("课程导入成功！");
             AndroidBridge.showToast("测试课程导入成功！");
@@ -152,8 +151,7 @@ async function runAllDemosSequentially() {
     console.log("所有弹窗演示已完成。");
     AndroidBridge.showToast("所有弹窗演示已完成！");
 
-    //取消注释此行以在演示序列中包含课程导入测试
-    //await demoSaveCourses();
+    await demoSaveCourses();
 }
 
 // 启动所有演示
