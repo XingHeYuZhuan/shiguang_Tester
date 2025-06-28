@@ -150,11 +150,7 @@ async function runAllDemosSequentially() {
 
     console.log("所有弹窗演示已完成。");
     AndroidBridge.showToast("所有弹窗演示已完成！");
-
-<<<<<<< HEAD
-=======
-    //取消注释此行以在演示序列中包含课程导入测试
-    //await demoSaveCourses();
+    await demoSaveCourses();
 }
 
 // 启动所有演示
