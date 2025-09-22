@@ -1,5 +1,42 @@
 // background.js
 
+// 临时数据缓存，用于在执行结束后合并下载
+let cachedCourses = null;
+let cachedTimeSlots = null;
+
+// 新增函数：检查并尝试合并下载
+function tryMergeAndExport() {
+    // 只有当两个数据都已缓存时才执行下载
+    if (cachedCourses !== null && cachedTimeSlots !== null) {
+        console.log("课程和时间段数据均已就绪，正在触发合并下载...");
+
+        const exportData = {
+            courses: cachedCourses,
+            timeSlots: cachedTimeSlots
+        };
+        const exportJsonString = JSON.stringify(exportData, null, 2);
+
+        const dataUrl = 'data:application/json;charset=utf-8,' + encodeURIComponent(exportJsonString);
+
+        chrome.downloads.download({
+            url: dataUrl,
+            filename: 'CourseTableExport.json',
+            saveAs: true
+        }, (downloadId) => {
+            // 下载启动后，重置缓存以便下次使用
+            cachedCourses = null;
+            cachedTimeSlots = null;
+            if (downloadId) {
+                console.log(`合并下载已启动，ID: ${downloadId}`);
+            } else {
+                console.error("合并下载未能启动。", chrome.runtime.lastError);
+            }
+        });
+    } else {
+        console.log("等待数据，当前状态：课程就绪=", cachedCourses !== null, "时间段就绪=", cachedTimeSlots !== null);
+    }
+}
+
 // 监听消息
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const tabId = sender.tab ? sender.tab.id : null;
@@ -44,45 +81,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 const savePromiseId = args[1];
 
                 try {
-                    const dataUrl = 'data:application/json;charset=utf-8,' + encodeURIComponent(coursesJsonString);
-
-                    chrome.downloads.download({
-                        url: dataUrl,
-                        filename: 'courses.json',
-                        saveAs: true
-                    }, (downloadId) => {
-                        if (downloadId === undefined || chrome.runtime.lastError) {
-                            const errorMessage = chrome.runtime.lastError ? chrome.runtime.lastError.message : "下载未能启动。";
-                            console.error(`下载失败: ${errorMessage}`);
-                            chrome.tabs.sendMessage(tabId, {
-                                type: 'RESOLVE_PROMISE_IN_PAGE',
-                                messageId: savePromiseId,
-                                value: `下载失败: ${errorMessage}`,
-                                isError: true
-                            });
-                        } else {
-                            console.log(`下载已启动，ID: ${downloadId}`);
-                            chrome.tabs.sendMessage(tabId, {
-                                type: 'RESOLVE_PROMISE_IN_PAGE',
-                                messageId: savePromiseId,
-                                value: "true",
-                                isError: false
-                            });
-                        }
-                    });
-                } catch (e) {
-                    // 这个 catch 块现在不太可能被触发，但保留它以确保代码健壮性。
-                    console.error("创建下载文件时出错:", e);
+                    cachedCourses = JSON.parse(coursesJsonString);
+                    console.log("课程数据已缓存。");
+                    tryMergeAndExport();
+                    
                     chrome.tabs.sendMessage(tabId, {
                         type: 'RESOLVE_PROMISE_IN_PAGE',
                         messageId: savePromiseId,
-                        value: `创建下载数据时出错: ${e.message}`,
+                        value: true,
+                        isError: false
+                    });
+                } catch (e) {
+                    console.error("解析课程数据时出错:", e);
+                    chrome.tabs.sendMessage(tabId, {
+                        type: 'RESOLVE_PROMISE_IN_PAGE',
+                        messageId: savePromiseId,
+                        value: `解析课程数据时出错: ${e.message}`,
                         isError: true
                     });
                 }
                 
-                // 立即响应 content script 的消息，并返回 true
-                // 表示我们将异步地发送另一个消息（即上面下载回调中的 RESOLVE_PROMISE_IN_PAGE）
                 sendResponse({ success: true });
                 return true;
                 
@@ -91,38 +109,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 const timeSlotsPromiseId = args[1];
 
                 try {
-                    const dataUrl = 'data:application/json;charset=utf-8,' + encodeURIComponent(timeSlotsJsonString);
-
-                    chrome.downloads.download({
-                        url: dataUrl,
-                        filename: 'presetTimeSlots.json',
-                        saveAs: true
-                    }, (downloadId) => {
-                        if (downloadId === undefined || chrome.runtime.lastError) {
-                            const errorMessage = chrome.runtime.lastError ? chrome.runtime.lastError.message : "下载未能启动。";
-                            console.error(`下载失败: ${errorMessage}`);
-                            chrome.tabs.sendMessage(tabId, {
-                                type: 'RESOLVE_PROMISE_IN_PAGE',
-                                messageId: timeSlotsPromiseId,
-                                value: `下载失败: ${errorMessage}`,
-                                isError: true
-                            });
-                        } else {
-                            console.log(`下载已启动，ID: ${downloadId}`);
-                            chrome.tabs.sendMessage(tabId, {
-                                type: 'RESOLVE_PROMISE_IN_PAGE',
-                                messageId: timeSlotsPromiseId,
-                                value: "true",
-                                isError: false
-                            });
-                        }
-                    });
-                } catch (e) {
-                    console.error("创建下载文件时出错:", e);
+                    cachedTimeSlots = JSON.parse(timeSlotsJsonString);
+                    console.log("时间段数据已缓存。");
+                    tryMergeAndExport();
+                    
                     chrome.tabs.sendMessage(tabId, {
                         type: 'RESOLVE_PROMISE_IN_PAGE',
                         messageId: timeSlotsPromiseId,
-                        value: `创建下载数据时出错: ${e.message}`,
+                        value: true,
+                        isError: false
+                    });
+                } catch (e) {
+                    console.error("解析时间段数据时出错:", e);
+                    chrome.tabs.sendMessage(tabId, {
+                        type: 'RESOLVE_PROMISE_IN_PAGE',
+                        messageId: timeSlotsPromiseId,
+                        value: `解析时间段数据时出错: ${e.message}`,
                         isError: true
                     });
                 }
@@ -137,37 +139,42 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
     }
 
+    if (message.type === 'EXPORT_DATA_REQUEST') {
+        console.log("收到 EXPORT_DATA_REQUEST，正在尝试触发下载...");
+        tryMergeAndExport();
+        sendResponse({ success: true });
+        return true;
+    }
+
     // 处理内联对话框结果
     if (message.type === 'INLINE_DIALOG_RESULT') {
         const { value, messageId } = message;
-
         let processedValue = value;
-
         if (typeof processedValue === 'string' && processedValue.length >= 2) {
-            const firstChar = processedValue.charAt(0);
-            const lastChar = processedValue.charAt(processedValue.length - 1);
-            if ((firstChar === "'" && lastChar === "'") || (firstChar === '"' && lastChar === '"')) {
-                processedValue = processedValue.substring(1, processedValue.length - 1);
-            }
-        }
+             const firstChar = processedValue.charAt(0);
+             const lastChar = processedValue.charAt(processedValue.length - 1);
+             if ((firstChar === "'" && lastChar === "'") || (firstChar === '"' && lastChar === '"')) {
+                 processedValue = processedValue.substring(1, processedValue.length - 1);
+             }
+         }
 
-        if (processedValue === 'true') {
-            processedValue = true;
-        } else if (processedValue === 'false') {
-            processedValue = false;
-        } else if (processedValue === 'null') {
-            processedValue = null;
-        } else if (typeof processedValue === 'string' && processedValue.length > 0) {
-            const num = Number(processedValue);
-            if (!isNaN(num) && (String(num) === processedValue || (parsedInt = parseInt(processedValue, 10)) && String(parsedInt) === processedValue)) {
-                if (processedValue.includes('.') || processedValue.includes('e') || (processedValue.length > 1 && processedValue.startsWith('0') && processedValue !== '0')) {
-                    processedValue = num;
-                } else {
-                    processedValue = parseInt(processedValue, 10);
-                }
-            }
-        }
-
+         if (processedValue === 'true') {
+             processedValue = true;
+         } else if (processedValue === 'false') {
+             processedValue = false;
+         } else if (processedValue === 'null') {
+             processedValue = null;
+         } else if (typeof processedValue === 'string' && processedValue.length > 0) {
+             const num = Number(processedValue);
+             if (!isNaN(num) && (String(num) === processedValue || (parsedInt = parseInt(processedValue, 10)) && String(parsedInt) === processedValue)) {
+                 if (processedValue.includes('.') || processedValue.includes('e') || (processedValue.length > 1 && processedValue.startsWith('0') && processedValue !== '0')) {
+                     processedValue = num;
+                 } else {
+                     processedValue = parseInt(processedValue, 10);
+                 }
+             }
+         }
+        
         chrome.tabs.sendMessage(tabId, {
             type: 'RESOLVE_PROMISE_IN_PAGE',
             messageId: messageId,
