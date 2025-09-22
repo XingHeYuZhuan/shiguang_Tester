@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "my_class_Tool",
-  "version": "0.2",
-  "description": "一个通用开发工具",
+  "name": "shiguang_Tool",
+  "version": "1.0",
+  "description": "拾光课程表适配使用的测试开发工具，设置school.js为调用测试脚本，如需适配请改成你的js适配代码",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
