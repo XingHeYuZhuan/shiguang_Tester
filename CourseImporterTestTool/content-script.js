@@ -93,8 +93,6 @@ function showInlineDialog(dialogType, args, messageId) {
             }
             const defaultIndex = args[2] !== undefined ? parseInt(args[2], 10) : -1;
             selectedOptionIndex = defaultIndex;
-            confirmText = args[3] || '确定';
-            cancelText = args[4] || '取消';
             contentText = '';
         }
 

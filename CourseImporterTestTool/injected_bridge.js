@@ -16,6 +16,53 @@ window.AndroidBridge = {
     }
 };
 
+/**
+ * 验证单个课程数据是否包含所有必需字段。
+ * @param {object} course 待验证的课程对象
+ * @returns {string|null} 如果验证失败返回错误消息，否则返回 null
+ */
+function validateCourseData(course) {
+    if (!course) {
+        return "课程数据必须是一个有效的对象。";
+    }
+    const requiredFields = ['name', 'teacher', 'position', 'day', 'startSection', 'endSection', 'weeks'];
+    for (const field of requiredFields) {
+        if (course[field] === undefined || course[field] === null) {
+            return `课程数据缺少必需字段: '${field}'。`;
+        }
+    }
+    // 额外的非空字符串检查
+    if (typeof course.name === 'string' && course.name.trim() === '') {
+        return "课程名称不能为空。";
+    }
+    return null;
+}
+
+/**
+ * 验证单个时间段数据是否包含所有必需字段。
+ * @param {object} timeSlot 待验证的时间段对象
+ * @returns {string|null} 如果验证失败返回错误消息，否则返回 null
+ */
+function validateTimeSlotData(timeSlot) {
+    if (!timeSlot) {
+        return "时间段数据必须是一个有效的对象。";
+    }
+    const requiredFields = ['number', 'startTime', 'endTime'];
+    for (const field of requiredFields) {
+        if (timeSlot[field] === undefined || timeSlot[field] === null) {
+            return `时间段数据缺少必需字段: '${field}'。`;
+        }
+    }
+    // 额外的非空字符串检查
+    if (typeof timeSlot.startTime === 'string' && timeSlot.startTime.trim() === '') {
+        return "开始时间不能为空。";
+    }
+    if (typeof timeSlot.endTime === 'string' && timeSlot.endTime.trim() === '') {
+        return "结束时间不能为空。";
+    }
+    return null;
+}
+
 // AndroidBridgePromise 异步方法模拟
 window.AndroidBridgePromise = {
     showAlert: (titleText, contentText, confirmText) => {
@@ -36,7 +83,7 @@ window.AndroidBridgePromise = {
         return new Promise((resolve, reject) => {
             const promiseId = generatePromiseId();
             pendingPromises.set(promiseId, { resolve, reject });
-            console.log('[模拟Prompt]:', { titleText, contentText, defaultValue, validatorFnName, promiseId });
+            console.log('[模拟Prompt]:', { titleText, contentText, defaultValue, validatorFnName });
             window.postMessage({
                 type: 'ANDROID_BRIDGE_CALL',
                 method: 'showPrompt',
@@ -46,43 +93,91 @@ window.AndroidBridgePromise = {
         });
     },
 
-    showSingleSelection: (titleText, optionsJsonString, defaultIndex, confirmText, cancelText) => {
+    showSingleSelection: (titleText, items, selectedIndex) => {
         return new Promise((resolve, reject) => {
             const promiseId = generatePromiseId();
             pendingPromises.set(promiseId, { resolve, reject });
-            console.log('[模拟SingleSelection]:', { titleText, optionsJsonString, defaultIndex, confirmText, cancelText, promiseId });
+            console.log('[模拟SingleSelection]:', { titleText, items, selectedIndex, promiseId });
             window.postMessage({
                 type: 'ANDROID_BRIDGE_CALL',
                 method: 'showSingleSelection',
-                args: [titleText, optionsJsonString, defaultIndex, confirmText, cancelText, promiseId],
+                args: [titleText, items, selectedIndex],
                 messageId: promiseId
             }, window.location.origin);
         });
     },
 
-    saveImportedCourses: (coursesJsonString) => {
+    saveImportedCourses: (jsonString) => {
         return new Promise((resolve, reject) => {
             const promiseId = generatePromiseId();
             pendingPromises.set(promiseId, { resolve, reject });
-            console.log('[模拟SaveImportedCourses]:', { coursesJsonString, promiseId });
+            console.log('[模拟SaveImportedCourses]:', { jsonString });
+            try {
+                const courses = JSON.parse(jsonString);
+                if (!Array.isArray(courses)) {
+                    throw new Error("传入的JSON不是一个课程数组。");
+                }
+                for (const course of courses) {
+                    const validationError = validateCourseData(course);
+                    if (validationError) {
+                        throw new Error(`课程数据验证失败: ${validationError}`);
+                    }
+                }
+            } catch (e) {
+                console.error('[数据验证失败]:', e.message);
+                pendingPromises.delete(promiseId);
+                return reject(e);
+            }
+
             window.postMessage({
                 type: 'ANDROID_BRIDGE_CALL',
                 method: 'saveImportedCourses',
-                args: [coursesJsonString, promiseId],
+                args: [jsonString, promiseId],
+                messageId: promiseId
+            }, window.location.origin);
+        });
+    },
+
+    savePresetTimeSlots: (jsonString) => {
+        return new Promise((resolve, reject) => {
+            const promiseId = generatePromiseId();
+            pendingPromises.set(promiseId, { resolve, reject });
+            console.log('[模拟SavePresetTimeSlots]:', { jsonString });
+            try {
+                const timeSlots = JSON.parse(jsonString);
+                if (!Array.isArray(timeSlots)) {
+                    throw new Error("传入的JSON不是一个时间段数组。");
+                }
+                for (const timeSlot of timeSlots) {
+                    const validationError = validateTimeSlotData(timeSlot);
+                    if (validationError) {
+                        throw new Error(`时间段数据验证失败: ${validationError}`);
+                    }
+                }
+            } catch (e) {
+                console.error('[数据验证失败]:', e.message);
+                pendingPromises.delete(promiseId);
+                return reject(e);
+            }
+
+            window.postMessage({
+                type: 'ANDROID_BRIDGE_CALL',
+                method: 'savePresetTimeSlots',
+                args: [jsonString, promiseId],
                 messageId: promiseId
             }, window.location.origin);
         });
     }
 };
 
-// 监听消息
-window.addEventListener('message', function(event) {
-    if (event.source === window && event.data) {
+// 监听来自 content-script 的消息
+window.addEventListener('message', (event) => {
+    // 确保消息来自我们自己的域并且是我们的类型
+    if (event.source === window && event.data && event.data.type) {
         // Promise 响应处理
         if (event.data.type === 'ANDROID_BRIDGE_PROMISE_RESPONSE') {
             const { messageId, value, isError } = event.data;
             const promiseCallbacks = pendingPromises.get(messageId);
-
             if (promiseCallbacks) {
                 if (isError) {
                     console.error('JS: _rejectAndroidPromise via postMessage', messageId, 'Error:', value);

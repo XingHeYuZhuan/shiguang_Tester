@@ -25,7 +25,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             case 'showAlert':
             case 'showPrompt':
             case 'showSingleSelection':
-                const dialogPromiseId = args[args.length - 1];
+                const dialogPromiseId = messageId; 
                 chrome.tabs.sendMessage(tabId, {
                     type: 'SHOW_INLINE_DIALOG',
                     dialogType: method.replace('show', '').toLowerCase(),
@@ -39,14 +39,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 });
                 return true;
 
-            // 课程保存操作 (*** 这是被修改的部分 ***)
             case 'saveImportedCourses':
                 const coursesJsonString = args[0];
                 const savePromiseId = args[1];
 
                 try {
-                    // *** 最终解决方案：使用 Data URL ***
-                    // 这种方法不依赖 Blob 或 createObjectURL，直接将JSON内容编码到URL中。
                     const dataUrl = 'data:application/json;charset=utf-8,' + encodeURIComponent(coursesJsonString);
 
                     chrome.downloads.download({
@@ -86,6 +83,50 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 
                 // 立即响应 content script 的消息，并返回 true
                 // 表示我们将异步地发送另一个消息（即上面下载回调中的 RESOLVE_PROMISE_IN_PAGE）
+                sendResponse({ success: true });
+                return true;
+                
+            case 'savePresetTimeSlots':
+                const timeSlotsJsonString = args[0];
+                const timeSlotsPromiseId = args[1];
+
+                try {
+                    const dataUrl = 'data:application/json;charset=utf-8,' + encodeURIComponent(timeSlotsJsonString);
+
+                    chrome.downloads.download({
+                        url: dataUrl,
+                        filename: 'presetTimeSlots.json',
+                        saveAs: true
+                    }, (downloadId) => {
+                        if (downloadId === undefined || chrome.runtime.lastError) {
+                            const errorMessage = chrome.runtime.lastError ? chrome.runtime.lastError.message : "下载未能启动。";
+                            console.error(`下载失败: ${errorMessage}`);
+                            chrome.tabs.sendMessage(tabId, {
+                                type: 'RESOLVE_PROMISE_IN_PAGE',
+                                messageId: timeSlotsPromiseId,
+                                value: `下载失败: ${errorMessage}`,
+                                isError: true
+                            });
+                        } else {
+                            console.log(`下载已启动，ID: ${downloadId}`);
+                            chrome.tabs.sendMessage(tabId, {
+                                type: 'RESOLVE_PROMISE_IN_PAGE',
+                                messageId: timeSlotsPromiseId,
+                                value: "true",
+                                isError: false
+                            });
+                        }
+                    });
+                } catch (e) {
+                    console.error("创建下载文件时出错:", e);
+                    chrome.tabs.sendMessage(tabId, {
+                        type: 'RESOLVE_PROMISE_IN_PAGE',
+                        messageId: timeSlotsPromiseId,
+                        value: `创建下载数据时出错: ${e.message}`,
+                        isError: true
+                    });
+                }
+
                 sendResponse({ success: true });
                 return true;
 
