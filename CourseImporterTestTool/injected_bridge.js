@@ -13,6 +13,11 @@ window.AndroidBridge = {
     showToast: (message) => {
         console.log('[模拟Toast]:', message);
         window.postMessage({ type: 'ANDROID_BRIDGE_CALL', method: 'showToast', args: [message] }, window.location.origin);
+    },
+    // 统一的收尾信号
+    notifyTaskCompletion: () => {
+        console.log('[模拟Completion]: 收到任务完成通知');
+        window.postMessage({ type: 'ANDROID_BRIDGE_CALL', method: 'notifyTaskCompletion', args: [] }, window.location.origin);
     }
 };
 

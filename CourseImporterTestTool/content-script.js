@@ -19,7 +19,11 @@ function executeFixedJs(jsFileName) {
     script.src = chrome.runtime.getURL(jsFileName);
     document.documentElement.appendChild(script);
     console.log(`${jsFileName} loaded and executed in page context.`);
-    chrome.runtime.sendMessage({ type: 'JS_EXECUTION_STATUS', success: true, message: `${jsFileName} 执行成功！请查看F12控制台。` });
+    // 移除立即发送成功的消息。
+    // chrome.runtime.sendMessage({ type: 'JS_EXECUTION_STATUS', success: true, message: `${jsFileName} 执行成功！请查看F12控制台。` });
+
+    // 发送一个中间状态，提示用户脚本已注入，正在等待执行结果 (Pop-up 可能会显示此消息)
+    chrome.runtime.sendMessage({ type: 'JS_EXECUTION_STATUS', success: true, message: `${jsFileName} 已注入页面，等待校内脚本执行结果...` }).catch(e => console.error("Error sending intermediate status:", e));
 }
 
 // 待处理的验证请求
@@ -330,23 +334,47 @@ injectAndroidBridge();
 
 // 监听来自页面的消息
 window.addEventListener('message', function(event) {
-    if (event.source === window && event.data && event.data.type === 'ANDROID_BRIDGE_CALL') {
+    // 1. 确保消息来自同一窗口且包含数据类型
+    if (event.source !== window || !event.data || !event.data.type) {
+        return;
+    }
+    
+    // 2. 处理 ANDROID_BRIDGE_CALL 类型的消息 (转发给 Background)
+    if (event.data.type === 'ANDROID_BRIDGE_CALL') {
+        const { method, args, messageId } = event.data;
+
+        if (method === 'notifyTaskCompletion') { 
+            const finalMessage = '校内脚本已完成所有任务（包括弹窗和数据导入）。请查看控制台和下载文件。';
+            console.log(`Content Script received Task Completion signal: ${method}`);
+            chrome.runtime.sendMessage({ 
+                type: 'JS_EXECUTION_STATUS', 
+                success: true, 
+                message: finalMessage 
+            }).catch(e => console.error("Error sending final status to background:", e));
+        }
         chrome.runtime.sendMessage({
             type: 'BRIDGE_CALL_FROM_PAGE',
-            method: event.data.method,
-            args: event.data.args,
-            messageId: event.data.messageId
-        }).catch(e => console.error("Error sending BRIDGE_CALL_FROM_PAGE to background:", e));
+            method: method,
+            args: args,
+            messageId: messageId
+        })
+        .then(() => {
+        })
+        .catch(e => console.error("Error sending BRIDGE_CALL_FROM_PAGE to background:", e));
+        return;
     }
-    if (event.source === window && event.data && event.data.type === 'VALIDATION_RESULT') {
+    if (event.data.type === 'VALIDATION_RESULT') {
         const { requestId, validationError } = event.data;
         const validationCallbacks = pendingValidationRequests.get(requestId);
+        
         if (validationCallbacks) {
-            validationCallbacks.resolveValidation(validationError);
+            console.log('Content Script received VALIDATION_RESULT for ID:', requestId, 'Error:', validationError);
+            validationCallbacks.resolveValidation(validationError); 
             pendingValidationRequests.delete(requestId);
         } else {
             console.warn('Content Script: Received VALIDATION_RESULT for unknown request ID:', requestId);
         }
+        return;
     }
 });
 
@@ -355,7 +383,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.type === 'RELOAD_AND_EXECUTE_JS') {
         console.log('Received request to reload and execute JS from background...');
         executeFixedJs('school.js');
-        sendResponse({ success: true, message: 'JS执行完成，请查看页面控制台。' });
+        sendResponse({ success: true, message: 'JS注入完成，等待校内脚本执行结果...' });
         return true;
     } else if (request.type === 'SHOW_INLINE_DIALOG') {
         console.log(`Content Script received SHOW_INLINE_DIALOG for type: ${request.dialogType}`);

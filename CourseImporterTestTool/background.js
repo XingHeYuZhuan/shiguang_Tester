@@ -1,40 +1,42 @@
-// background.js
+// 文件: background.js
 
 // 临时数据缓存，用于在执行结束后合并下载
 let cachedCourses = null;
 let cachedTimeSlots = null;
 
-// 新增函数：检查并尝试合并下载
+// 合并下载
 function tryMergeAndExport() {
-    // 只有当两个数据都已缓存时才执行下载
-    if (cachedCourses !== null && cachedTimeSlots !== null) {
-        console.log("课程和时间段数据均已就绪，正在触发合并下载...");
+    console.log("收到脚本完成信号，正在触发合并下载...");
 
-        const exportData = {
-            courses: cachedCourses,
-            timeSlots: cachedTimeSlots
-        };
-        const exportJsonString = JSON.stringify(exportData, null, 2);
+    const exportData = {
+        // 即使是 null，也会被 JSON.stringify 序列化为 null
+        courses: cachedCourses,
+        timeSlots: cachedTimeSlots
+    };
+    // 强制转换为 JSON 字符串，即使数据为 null，输出也会是 {"courses": null, "timeSlots": null}
+    const exportJsonString = JSON.stringify(exportData, null, 2); 
 
-        const dataUrl = 'data:application/json;charset=utf-8,' + encodeURIComponent(exportJsonString);
-
-        chrome.downloads.download({
-            url: dataUrl,
-            filename: 'CourseTableExport.json',
-            saveAs: true
-        }, (downloadId) => {
-            // 下载启动后，重置缓存以便下次使用
-            cachedCourses = null;
-            cachedTimeSlots = null;
-            if (downloadId) {
-                console.log(`合并下载已启动，ID: ${downloadId}`);
-            } else {
-                console.error("合并下载未能启动。", chrome.runtime.lastError);
-            }
-        });
-    } else {
-        console.log("等待数据，当前状态：课程就绪=", cachedCourses !== null, "时间段就绪=", cachedTimeSlots !== null);
+    // 如果数据都为 null，日志中会显示“合并下载未能启动”，但下载操作本身会被尝试。
+    if (cachedCourses === null && cachedTimeSlots === null) {
+        console.warn("注意：脚本完成时课程和时间段数据都为空 (null)，将下载空文件。");
     }
+
+    const dataUrl = 'data:application/json;charset=utf-8,' + encodeURIComponent(exportJsonString);
+
+    chrome.downloads.download({
+        url: dataUrl,
+        filename: 'CourseTableExport.json',
+        saveAs: true
+    }, (downloadId) => {
+        // 下载启动后，重置缓存以便下次使用
+        cachedCourses = null;
+        cachedTimeSlots = null;
+        if (downloadId) {
+            console.log(`合并下载已启动，ID: ${downloadId}`);
+        } else {
+            console.error("合并下载未能启动。", chrome.runtime.lastError);
+        }
+    });
 }
 
 // 监听消息
@@ -46,7 +48,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const { method, args, messageId } = message;
 
         switch (method) {
-            // Toast 消息
             case 'showToast':
                 chrome.notifications.create({
                     type: 'basic',
@@ -58,7 +59,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 sendResponse({ success: true });
                 break;
 
-            // 内联对话框消息
             case 'showAlert':
             case 'showPrompt':
             case 'showSingleSelection':
@@ -82,8 +82,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
                 try {
                     cachedCourses = JSON.parse(coursesJsonString);
-                    console.log("课程数据已缓存。");
-                    tryMergeAndExport();
+                    console.log("课程数据已缓存。等待 'notifyTaskCompletion' 触发下载。");
                     
                     chrome.tabs.sendMessage(tabId, {
                         type: 'RESOLVE_PROMISE_IN_PAGE',
@@ -110,8 +109,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
                 try {
                     cachedTimeSlots = JSON.parse(timeSlotsJsonString);
-                    console.log("时间段数据已缓存。");
-                    tryMergeAndExport();
+                    console.log("时间段数据已缓存。等待 'notifyTaskCompletion' 触发下载。");
                     
                     chrome.tabs.sendMessage(tabId, {
                         type: 'RESOLVE_PROMISE_IN_PAGE',
@@ -131,6 +129,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
                 sendResponse({ success: true });
                 return true;
+                
+            case 'notifyTaskCompletion':
+                console.log("接收到 notifyTaskCompletion 信号，触发数据导出。");
+                tryMergeAndExport(); // 此时触发下载
+                sendResponse({ success: true });
+                break; // 这是一个 fire-and-forget 的同步桥接调用
 
             default:
                 console.warn('Unknown AndroidBridge method:', method);
@@ -138,7 +142,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 break;
         }
     }
-
     if (message.type === 'EXPORT_DATA_REQUEST') {
         console.log("收到 EXPORT_DATA_REQUEST，正在尝试触发下载...");
         tryMergeAndExport();
@@ -146,7 +149,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 
-    // 处理内联对话框结果
     if (message.type === 'INLINE_DIALOG_RESULT') {
         const { value, messageId } = message;
         let processedValue = value;
@@ -174,7 +176,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                  }
              }
          }
-        
+
         chrome.tabs.sendMessage(tabId, {
             type: 'RESOLVE_PROMISE_IN_PAGE',
             messageId: messageId,
@@ -189,7 +191,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
 
-    // JS 执行状态更新
     if (message.type === 'JS_EXECUTION_STATUS') {
         chrome.runtime.sendMessage(message)
             .then(() => sendResponse({ success: true }))
