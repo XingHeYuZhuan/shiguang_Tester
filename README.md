@@ -14,7 +14,7 @@ shiguangschedule 适配使用的测试器，旨在帮助开发者便捷地测试
    - 选择本项目目录下的 `CourseImporterTestTool` 文件夹
 
 3. **（可选）更改适配代码入口文件**
-   - 如需自定义适配 JS 文件，请修改 `CourseImporterTestTool/manifest.json` 中 `web_accessible_resources` 的 "resources" 配置。例如：
+   - 如需自定义适配 JS 文件，请修改 **CourseImporterTestTool/manifest.json** 中 **web_accessible_resources** 的 "resources" 配置。例如：
 
    ```json
    "web_accessible_resources": [
