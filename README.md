@@ -13,18 +13,17 @@ shiguangschedule 适配使用的测试器，旨在帮助开发者便捷地测试
    - 点击“加载已解压的扩展程序”
    - 选择本项目目录下的 `CourseImporterTestTool` 文件夹
 
-3. **（可选）更改适配代码入口文件**
-   - 如需自定义适配 JS 文件，请修改 **CourseImporterTestTool/manifest.json** 中 **web_accessible_resources** 的 "resources" 配置。例如：
+3. **更改适配代码**
+   - 将你需要测试的代码替换school.js文件的内容
 
    ```json
    "web_accessible_resources": [
       {
-         "resources": ["your_adapter.js", "injected_bridge.js"],
+         "resources": ["school.js", "injected_bridge.js"],
          "matches": ["<all_urls>"]
       }
    ]
    ```
-   这样可自定义适配代码的调用位置。
 
 4. **启动插件**
    - 安装后，浏览器右上角会出现插件图标。
