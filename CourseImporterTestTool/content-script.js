@@ -4,6 +4,7 @@
 function injectAndroidBridge() {
     const script = document.createElement('script');
     script.src = chrome.runtime.getURL('injected_bridge.js');
+    script.charset = 'UTF-8';
     document.documentElement.appendChild(script);
     console.log('AndroidBridge injected into page context.');
 }
@@ -17,12 +18,9 @@ function executeFixedJs(jsFileName) {
 
     const script = document.createElement('script');
     script.src = chrome.runtime.getURL(jsFileName);
+    script.charset = 'UTF-8';
     document.documentElement.appendChild(script);
     console.log(`${jsFileName} loaded and executed in page context.`);
-    // 移除立即发送成功的消息。
-    // chrome.runtime.sendMessage({ type: 'JS_EXECUTION_STATUS', success: true, message: `${jsFileName} 执行成功！请查看F12控制台。` });
-
-    // 发送一个中间状态，提示用户脚本已注入，正在等待执行结果 (Pop-up 可能会显示此消息)
     chrome.runtime.sendMessage({ type: 'JS_EXECUTION_STATUS', success: true, message: `${jsFileName} 已注入页面，等待校内脚本执行结果...` }).catch(e => console.error("Error sending intermediate status:", e));
 }
 
