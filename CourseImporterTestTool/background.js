@@ -3,22 +3,22 @@
 // 临时数据缓存，用于在执行结束后合并下载
 let cachedCourses = null;
 let cachedTimeSlots = null;
+let cachedCourseConfig = null;
 
 // 合并下载
 function tryMergeAndExport() {
     console.log("收到脚本完成信号，正在触发合并下载...");
 
     const exportData = {
-        // 即使是 null，也会被 JSON.stringify 序列化为 null
         courses: cachedCourses,
-        timeSlots: cachedTimeSlots
+        timeSlots: cachedTimeSlots,
+        config: cachedCourseConfig
     };
-    // 强制转换为 JSON 字符串，即使数据为 null，输出也会是 {"courses": null, "timeSlots": null}
+    // 强制转换为 JSON 字符串
     const exportJsonString = JSON.stringify(exportData, null, 2); 
 
-    // 如果数据都为 null，日志中会显示“合并下载未能启动”，但下载操作本身会被尝试。
-    if (cachedCourses === null && cachedTimeSlots === null) {
-        console.warn("注意：脚本完成时课程和时间段数据都为空 (null)，将下载空文件。");
+    if (cachedCourses === null && cachedTimeSlots === null && cachedCourseConfig === null) {
+        console.warn("注意：脚本完成时课程、时间段和配置数据都为空 (null)，将下载空文件。");
     }
 
     const dataUrl = 'data:application/json;charset=utf-8,' + encodeURIComponent(exportJsonString);
@@ -31,6 +31,7 @@ function tryMergeAndExport() {
         // 下载启动后，重置缓存以便下次使用
         cachedCourses = null;
         cachedTimeSlots = null;
+        cachedCourseConfig = null;
         if (downloadId) {
             console.log(`合并下载已启动，ID: ${downloadId}`);
         } else {
@@ -129,6 +130,37 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
                 sendResponse({ success: true });
                 return true;
+
+            case 'saveCourseConfig': // [新增] 处理 saveCourseConfig
+                const configJsonString = args[0];
+                const configPromiseId = args[1];
+
+                try {
+                    // 缓存解析后的配置对象
+                    cachedCourseConfig = JSON.parse(configJsonString); 
+                    console.log("课程配置数据已缓存。等待 'notifyTaskCompletion' 触发下载。");
+                    
+                    // 解决 Promise，返回 true
+                    chrome.tabs.sendMessage(tabId, {
+                        type: 'RESOLVE_PROMISE_IN_PAGE',
+                        messageId: configPromiseId,
+                        value: true, 
+                        isError: false
+                    });
+                } catch (e) {
+                    console.error("解析课程配置数据时出错:", e);
+                    // 拒绝 Promise
+                    chrome.tabs.sendMessage(tabId, {
+                        type: 'RESOLVE_PROMISE_IN_PAGE',
+                        messageId: configPromiseId,
+                        // 模仿原生接口的错误信息格式
+                        value: `课程配置导入失败: ${e.message}`, 
+                        isError: true
+                    });
+                }
+                
+                sendResponse({ success: true });
+                return true;
                 
             case 'notifyTaskCompletion':
                 console.log("接收到 notifyTaskCompletion 信号，触发数据导出。");
@@ -158,24 +190,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
              if ((firstChar === "'" && lastChar === "'") || (firstChar === '"' && lastChar === '"')) {
                  processedValue = processedValue.substring(1, processedValue.length - 1);
              }
-         }
+          }
 
-         if (processedValue === 'true') {
-             processedValue = true;
-         } else if (processedValue === 'false') {
-             processedValue = false;
-         } else if (processedValue === 'null') {
-             processedValue = null;
-         } else if (typeof processedValue === 'string' && processedValue.length > 0) {
-             const num = Number(processedValue);
-             if (!isNaN(num) && (String(num) === processedValue || (parsedInt = parseInt(processedValue, 10)) && String(parsedInt) === processedValue)) {
-                 if (processedValue.includes('.') || processedValue.includes('e') || (processedValue.length > 1 && processedValue.startsWith('0') && processedValue !== '0')) {
-                     processedValue = num;
-                 } else {
-                     processedValue = parseInt(processedValue, 10);
-                 }
-             }
-         }
+          if (processedValue === 'true') {
+              processedValue = true;
+          } else if (processedValue === 'false') {
+              processedValue = false;
+          } else if (processedValue === 'null') {
+              processedValue = null;
+          } else if (typeof processedValue === 'string' && processedValue.length > 0) {
+              const num = Number(processedValue);
+              if (!isNaN(num) && (String(num) === processedValue || (parsedInt = parseInt(processedValue, 10)) && String(parsedInt) === processedValue)) {
+                  if (processedValue.includes('.') || processedValue.includes('e') || (processedValue.length > 1 && processedValue.startsWith('0') && processedValue !== '0')) {
+                      processedValue = num;
+                  } else {
+                      processedValue = parseInt(processedValue, 10);
+                  }
+              }
+          }
 
         chrome.tabs.sendMessage(tabId, {
             type: 'RESOLVE_PROMISE_IN_PAGE',

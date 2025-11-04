@@ -68,6 +68,84 @@ function validateTimeSlotData(timeSlot) {
     return null;
 }
 
+/**
+ * 验证并清洗课表配置数据，应用默认值并忽略多余字段。
+ *
+ * 实现了以下逻辑:
+ * 1. 确保是有效的 JSON 对象。
+ * 2. 忽略未在模型中定义的字段。
+ * 3. 对缺失的字段应用模型中定义的默认值。
+ * 4. 对数字字段进行基本类型检查。
+ *
+ * @param {string} jsonString 待验证的配置 JSON 字符串
+ * @returns {string} 清洗和补全默认值后的 JSON 字符串
+ */
+function validateCourseConfigData(jsonString) {
+    let config;
+    try {
+        config = JSON.parse(jsonString);
+    } catch (e) {
+        throw new Error(`配置数据 JSON 解析失败: ${e.message}`);
+    }
+
+    if (typeof config !== 'object' || config === null) {
+        throw new Error("传入的配置数据不是一个有效的JSON对象。");
+    }
+
+    // 预期模型的字段及其默认值 (基于 CourseConfigJsonModel)
+    const defaults = {
+        semesterStartDate: null, // String? = null
+        semesterTotalWeeks: 20, // Int = 20
+        defaultClassDuration: 45, // Int = 45
+        defaultBreakDuration: 10, // Int = 10
+        firstDayOfWeek: 1 // Int = 1
+    };
+
+    const cleanedConfig = {};
+    let errorMsg = null;
+
+    // 清洗和应用默认值
+    for (const key in defaults) {
+        const defaultValue = defaults[key];
+
+        if (config.hasOwnProperty(key)) {
+            let value = config[key];
+
+            // 针对 Int 类型的字段进行类型检查和转换 (除了 null 值的 semesterStartDate)
+            if (typeof defaultValue === 'number') {
+                // 尝试转换为整数
+                let numValue = parseInt(value);
+                if (isNaN(numValue) || numValue < 0) {
+                    errorMsg = `'${key}' 必须是有效的非负整数。`;
+                    break;
+                }
+                cleanedConfig[key] = numValue;
+            } else if (key === 'semesterStartDate') {
+                // 确保是字符串或 null
+                if (value !== null && typeof value !== 'string') {
+                     errorMsg = `'${key}' 必须是字符串或 null。`;
+                     break;
+                }
+                cleanedConfig[key] = value;
+            } else {
+                // 对于其他类型（理论上不应该有），直接使用值
+                cleanedConfig[key] = value;
+            }
+        } else {
+            // 字段缺失，应用默认值
+            cleanedConfig[key] = defaultValue;
+        }
+    }
+    
+    if (errorMsg) {
+        throw new Error(`配置数据验证失败: ${errorMsg}`);
+    }
+
+    // 返回清洗和补全后的 JSON 字符串
+    return JSON.stringify(cleanedConfig);
+}
+
+
 // AndroidBridgePromise 异步方法模拟
 window.AndroidBridgePromise = {
     showAlert: (titleText, contentText, confirmText) => {
@@ -169,6 +247,31 @@ window.AndroidBridgePromise = {
                 type: 'ANDROID_BRIDGE_CALL',
                 method: 'savePresetTimeSlots',
                 args: [jsonString, promiseId],
+                messageId: promiseId
+            }, window.location.origin);
+        });
+    },
+
+    saveCourseConfig: (jsonString) => {
+        return new Promise((resolve, reject) => {
+            const promiseId = generatePromiseId();
+            pendingPromises.set(promiseId, { resolve, reject });
+            console.log('[模拟SaveCourseConfig]:', { jsonString });
+            
+            let cleanedJsonString = jsonString;
+
+            try {
+                cleanedJsonString = validateCourseConfigData(jsonString);
+            } catch (e) {
+                console.error('[配置数据校验失败]:', e.message);
+                pendingPromises.delete(promiseId);
+                return reject(e);
+            }
+
+            window.postMessage({
+                type: 'ANDROID_BRIDGE_CALL',
+                method: 'saveCourseConfig',
+                args: [cleanedJsonString, promiseId], 
                 messageId: promiseId
             }, window.location.origin);
         });
