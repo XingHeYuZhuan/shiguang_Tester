@@ -101,6 +101,26 @@ async function demoSaveCourses() {
         "weeks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     },
     {
+        "name": "测试自定义课程1",
+        "teacher": "测试老师1",
+        "position": "测试教室1",
+        "day": 1,
+        "isCustomTime": true,
+        "customStartTime": "08:00",
+        "customEndTime": "09:00",
+        "weeks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    },
+    {
+        "name": "测试自定义课程2",
+        "teacher": "测试老师2",
+        "position": "测试教室2",
+        "day": 3,
+        "isCustomTime": true,
+        "customStartTime": "06:00",
+        "customEndTime": "12:00",
+        "weeks": [3, 5, 7, 9, 11, 13, 15]
+    },
+    {
         "name": "大学英语",
         "teacher": "李老师",
         "position": "文史楼203",

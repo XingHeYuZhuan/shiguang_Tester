@@ -30,7 +30,20 @@ function validateCourseData(course) {
     if (!course) {
         return "课程数据必须是一个有效的对象。";
     }
-    const requiredFields = ['name', 'teacher', 'position', 'day', 'startSection', 'endSection', 'weeks'];
+    const requiredFields = ['name', 'teacher', 'position', 'day', 'weeks'];
+    // If isCustomTime is true, customStartTime and customEndTime are required
+    if (course.isCustomTime) {
+        if (!course.customStartTime) return "自定义时间课程缺少 customStartTime 字段。";
+        if (!course.customEndTime) return "自定义时间课程缺少 customEndTime 字段。";
+    } else {
+        // If not custom time, startSection and endSection are required
+        if (course.startSection === undefined || course.startSection === null) {
+            return `课程数据缺少必需字段: 'startSection'。`;
+        }
+        if (course.endSection === undefined || course.endSection === null) {
+            return `课程数据缺少必需字段: 'endSection'。`;
+        }
+    }
     for (const field of requiredFields) {
         if (course[field] === undefined || course[field] === null) {
             return `课程数据缺少必需字段: '${field}'。`;
