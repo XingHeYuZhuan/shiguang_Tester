@@ -21,6 +21,21 @@ window.AndroidBridge = {
     }
 };
 
+// 严格的 HH:mm 正则表达式：小时 00-23，分钟 00-59
+const TIME_REGEX = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
+
+/**
+ * 辅助函数：将 "HH:mm" 格式的字符串转换为自午夜以来的分钟数。
+ * 如果格式不正确返回 -1。
+ */
+function parseTimeToMinutes(timeStr) {
+    if (!timeStr || !TIME_REGEX.test(timeStr)) return -1;
+    const parts = timeStr.split(':');
+    const hours = parseInt(parts[0], 10);
+    const minutes = parseInt(parts[1], 10);
+    return hours * 60 + minutes;
+}
+
 /**
  * 验证单个课程数据是否包含所有必需字段。
  * @param {object} course 待验证的课程对象
@@ -31,10 +46,23 @@ function validateCourseData(course) {
         return "课程数据必须是一个有效的对象。";
     }
     const requiredFields = ['name', 'teacher', 'position', 'day', 'weeks'];
-    // If isCustomTime is true, customStartTime and customEndTime are required
+    // 如果开启了自定义时间，强校验 customStartTime 和 customEndTime
     if (course.isCustomTime) {
-        if (!course.customStartTime) return "自定义时间课程缺少 customStartTime 字段。";
-        if (!course.customEndTime) return "自定义时间课程缺少 customEndTime 字段。";
+        const startTime = course.customStartTime;
+        const endTime = course.customEndTime;
+
+        if (!startTime || typeof startTime !== 'string' || startTime.trim() === '') return "自定义时间课程缺少 customStartTime 字段。";
+        if (!endTime || typeof endTime !== 'string' || endTime.trim() === '') return "自定义时间课程缺少 customEndTime 字段。";
+
+        const startMinutes = parseTimeToMinutes(startTime);
+        const endMinutes = parseTimeToMinutes(endTime);
+
+        if (startMinutes === -1 || endMinutes === -1) {
+            return "自定义时间格式错误";
+        }
+        if (startMinutes >= endMinutes) {
+            return "自定义开始时间必须早于结束时间";
+        }
     } else {
         // If not custom time, startSection and endSection are required
         if (course.startSection === undefined || course.startSection === null) {
@@ -57,26 +85,46 @@ function validateCourseData(course) {
 }
 
 /**
- * 验证单个时间段数据是否包含所有必需字段。
- * @param {object} timeSlot 待验证的时间段对象
+ * 验证整个预设时间段数组（强校验格式、递增连续性、不重叠）。
+ * @param {Array} timeSlots 待验证的时间段数组
  * @returns {string|null} 如果验证失败返回错误消息，否则返回 null
  */
-function validateTimeSlotData(timeSlot) {
-    if (!timeSlot) {
-        return "时间段数据必须是一个有效的对象。";
+function validateAllTimeSlots(timeSlots) {
+    if (!Array.isArray(timeSlots)) {
+        return "传入的JSON不是一个时间段数组。";
     }
-    const requiredFields = ['number', 'startTime', 'endTime'];
-    for (const field of requiredFields) {
-        if (timeSlot[field] === undefined || timeSlot[field] === null) {
-            return `时间段数据缺少必需字段: '${field}'。`;
+    if (timeSlots.length === 0) return null;
+
+    const sortedSlots = [...timeSlots].sort((a, b) => (a.number || 0) - (b.number || 0));
+    let lastEndTimeInMinutes = -1;
+
+    for (let i = 0; i < sortedSlots.length; i++) {
+        const slot = sortedSlots[i];
+        const expectedNumber = i + 1;
+        if (slot.number !== expectedNumber) {
+            return "时间段编号不连续或未从1开始";
         }
-    }
-    // 额外的非空字符串检查
-    if (typeof timeSlot.startTime === 'string' && timeSlot.startTime.trim() === '') {
-        return "开始时间不能为空。";
-    }
-    if (typeof timeSlot.endTime === 'string' && timeSlot.endTime.trim() === '') {
-        return "结束时间不能为空。";
+
+        if (!slot.startTime || !slot.endTime) {
+            return "时间段数据缺少必需字段";
+        }
+
+        const startMinutes = parseTimeToMinutes(slot.startTime);
+        const endMinutes = parseTimeToMinutes(slot.endTime);
+
+        if (startMinutes === -1 || endMinutes === -1) {
+            return "时间格式错误";
+        }
+
+        if (startMinutes >= endMinutes) {
+            return "开始时间必须早于结束时间";
+        }
+
+        if (lastEndTimeInMinutes !== -1 && startMinutes < lastEndTimeInMinutes) {
+            return "时间段配置存在重叠";
+        }
+
+        lastEndTimeInMinutes = endMinutes;
     }
     return null;
 }
@@ -241,14 +289,9 @@ window.AndroidBridgePromise = {
             console.log('[模拟SavePresetTimeSlots]:', { jsonString });
             try {
                 const timeSlots = JSON.parse(jsonString);
-                if (!Array.isArray(timeSlots)) {
-                    throw new Error("传入的JSON不是一个时间段数组。");
-                }
-                for (const timeSlot of timeSlots) {
-                    const validationError = validateTimeSlotData(timeSlot);
-                    if (validationError) {
-                        throw new Error(`时间段数据验证失败: ${validationError}`);
-                    }
+                const validationError = validateAllTimeSlots(timeSlots);
+                if (validationError) {
+                    throw new Error(validationError);
                 }
             } catch (e) {
                 console.error('[数据验证失败]:', e.message);

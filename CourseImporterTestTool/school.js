@@ -313,22 +313,22 @@ async function demoSaveCourses() {
 async function importPresetTimeSlots() {
     console.log("正在准备预设时间段数据...");
     const presetTimeSlots = [
-        { "number": 1, "startTime": "08:00", "endTime": "08:01" },
-        { "number": 2, "startTime": "09:00", "endTime": "09:01" },
-        { "number": 3, "startTime": "10:00", "endTime": "10:01" },
-        { "number": 4, "startTime": "11:00", "endTime": "11:01" },
-        { "number": 5, "startTime": "12:00", "endTime": "12:01" },
-        { "number": 6, "startTime": "13:00", "endTime": "13:01" },
-        { "number": 7, "startTime": "14:00", "endTime": "14:01" },
-        { "number": 8, "startTime": "15:00", "endTime": "15:01" },
-        { "number": 9, "startTime": "16:00", "endTime": "16:01" },
-        { "number": 10, "startTime": "17:00", "endTime": "17:01" },
-        { "number": 11, "startTime": "18:00", "endTime": "18:01" },
-        { "number": 12, "startTime": "19:00", "endTime": "19:01" },
-        { "number": 13, "startTime": "20:00", "endTime": "20:01" },
-        { "number": 14, "startTime": "21:00", "endTime": "21:01" },
-        { "number": 15, "startTime": "22:00", "endTime": "22:01" },
-        { "number": 16, "startTime": "23:00", "endTime": "23:01" }
+        { "number": 1, "startTime": "07:00", "endTime": "07:40" },
+        { "number": 2, "startTime": "07:45", "endTime": "08:25" },
+        { "number": 3, "startTime": "08:30", "endTime": "09:10" },
+        { "number": 4, "startTime": "09:15", "endTime": "09:55" },
+        { "number": 5, "startTime": "10:15", "endTime": "10:55" },
+        { "number": 6, "startTime": "11:00", "endTime": "11:40" },
+        { "number": 7, "startTime": "11:45", "endTime": "12:25" },
+        { "number": 8, "startTime": "12:30", "endTime": "13:10" },
+        { "number": 9, "startTime": "13:30", "endTime": "14:10" },
+        { "number": 10, "startTime": "14:15", "endTime": "14:55" },
+        { "number": 11, "startTime": "15:00", "endTime": "15:40" },
+        { "number": 12, "startTime": "15:45", "endTime": "16:25" },
+        { "number": 13, "startTime": "16:45", "endTime": "17:25" },
+        { "number": 14, "startTime": "17:30", "endTime": "18:10" },
+        { "number": 15, "startTime": "18:15", "endTime": "18:55" },
+        { "number": 16, "startTime": "19:00", "endTime": "19:40" }
     ];
 
     try {
@@ -352,7 +352,7 @@ async function demoSaveConfig() {
     console.log("正在准备配置数据...");
     // 注意：只传入要修改的字段，其他字段（如 semesterTotalWeeks）会使用 Kotlin 模型中的默认值
     const courseConfigData = {
-        "semesterStartDate": "2025-09-01",
+        "semesterStartDate": null,
         "semesterTotalWeeks": 18,
         "defaultClassDuration": 50,
         "defaultBreakDuration": 5,
@@ -367,7 +367,7 @@ async function demoSaveConfig() {
 
         if (result === true) {
             console.log("课表配置导入成功！");
-            AndroidBridge.showToast("测试配置导入成功！开学日期: 2025-09-01");
+            AndroidBridge.showToast("测试配置导入成功");
         } else {
             console.log("课表配置导入未成功，结果：" + result);
             AndroidBridge.showToast("测试配置导入失败，请查看日志。");
