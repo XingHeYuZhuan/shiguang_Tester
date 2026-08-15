@@ -8,8 +8,8 @@ function generatePromiseId() {
 // 待处理 Promise 存储
 const pendingPromises = new Map();
 
-// AndroidBridge 同步方法模拟
-window.AndroidBridge = {
+// shiguangBridge 同步方法模拟
+window.shiguangBridge = {
     showToast: (message) => {
         console.log('[模拟Toast]:', message);
         window.postMessage({ type: 'ANDROID_BRIDGE_CALL', method: 'showToast', args: [message] }, window.location.origin);
@@ -207,8 +207,8 @@ function validateCourseConfigData(jsonString) {
 }
 
 
-// AndroidBridgePromise 异步方法模拟
-window.AndroidBridgePromise = {
+// shiguangBridgePromise 异步方法模拟
+window.shiguangBridgePromise = {
     showAlert: (titleText, contentText, confirmText) => {
         return new Promise((resolve, reject) => {
             const promiseId = generatePromiseId();
@@ -333,6 +333,14 @@ window.AndroidBridgePromise = {
         });
     }
 };
+
+// 旧接口兼容（直接引用 shiguang 实现）
+
+// AndroidBridge 兼容旧接口，直接引用 shiguangBridge
+window.AndroidBridge = window.shiguangBridge;
+
+// AndroidBridgePromise 兼容旧接口，直接引用 shiguangBridgePromise
+window.AndroidBridgePromise = window.shiguangBridgePromise;
 
 // 监听来自 content-script 的消息
 window.addEventListener('message', (event) => {

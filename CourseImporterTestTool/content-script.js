@@ -1,12 +1,12 @@
 // content-script.js
 
-// 注入 AndroidBridge
-function injectAndroidBridge() {
+// 注入桥接脚本
+function injectBridge() {
     const script = document.createElement('script');
     script.src = chrome.runtime.getURL('injected_bridge.js');
     script.charset = 'UTF-8';
     document.documentElement.appendChild(script);
-    console.log('AndroidBridge injected into page context.');
+    console.log('Bridge injected into page context.');
 }
 
 // 执行 JS 文件
@@ -32,13 +32,13 @@ const pendingValidationRequests = new Map();
 // 显示内联对话框
 function showInlineDialog(dialogType, args, messageId) {
     return new Promise((resolve, reject) => {
-        const existingOverlay = document.getElementById('android-bridge-dialog-overlay');
+        const existingOverlay = document.getElementById('bridge-dialog-overlay');
         if (existingOverlay) {
             existingOverlay.remove();
         }
 
         const overlay = document.createElement('div');
-        overlay.id = 'android-bridge-dialog-overlay';
+        overlay.id = 'bridge-dialog-overlay';
         overlay.style.cssText = `
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -50,7 +50,7 @@ function showInlineDialog(dialogType, args, messageId) {
         `;
 
         const dialogContainer = document.createElement('div');
-        dialogContainer.id = 'android-bridge-dialog-container';
+        dialogContainer.id = 'bridge-dialog-container';
         dialogContainer.style.cssText = `
             background: #fff;
             padding: 20px;
@@ -328,7 +328,7 @@ function showInlineDialog(dialogType, args, messageId) {
 // --- 内联对话框模块 END ---
 
 // 页面初始化
-injectAndroidBridge();
+injectBridge();
 
 // 监听来自页面的消息
 window.addEventListener('message', function(event) {
@@ -337,7 +337,7 @@ window.addEventListener('message', function(event) {
         return;
     }
     
-    // 2. 处理 ANDROID_BRIDGE_CALL 类型的消息 (转发给 Background)
+    // 2. 处理 BRIDGE_CALL 类型的消息 (转发给 Background)
     if (event.data.type === 'ANDROID_BRIDGE_CALL') {
         const { method, args, messageId } = event.data;
 

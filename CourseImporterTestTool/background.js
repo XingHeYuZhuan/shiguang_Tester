@@ -169,8 +169,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 break; // 这是一个 fire-and-forget 的同步桥接调用
 
             default:
-                console.warn('Unknown AndroidBridge method:', method);
-                sendResponse({ success: false, message: 'Unknown AndroidBridge method' });
+                console.warn('Unknown bridge method:', method);
+                sendResponse({ success: false, message: 'Unknown bridge method' });
                 break;
         }
     }
